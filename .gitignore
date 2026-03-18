@@ -8,3 +8,4 @@ trained_model/
 more_images/
 *.h5
 results/
+Data_sets_gate/
