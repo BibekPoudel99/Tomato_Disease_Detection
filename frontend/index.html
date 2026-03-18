@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tomato Disease Detection</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🍅 Tomato Disease Detection</h1>
+        <p class="subtitle">Upload or capture a tomato leaf image for instant diagnosis</p>
+
+        <div class="error" id="error"></div>
+
+        <div class="upload-section">
+            <div class="upload-box" id="fileUploadBox">
+                <div class="icon">📁</div>
+                <h3>Upload Image</h3>
+                <p>Click to select or drag & drop</p>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+
+            <div class="upload-box" id="cameraBox">
+                <div class="icon">📷</div>
+                <h3>Take Photo</h3>
+                <p>Click to open camera</p>
+            </div>
+        </div>
+
+        <div class="image-preview" id="imagePreview"></div>
+
+        <div class="button-group">
+            <button class="btn-primary" id="predictBtn" disabled>Analyze Image</button>
+            <button class="btn-secondary" id="clearBtn">Clear</button>
+        </div>
+
+        <!-- Camera Modal -->
+        <div id="cameraModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>📷 Camera</h2>
+                <video id="cameraVideo" autoplay playsinline></video>
+                <div class="camera-buttons">
+                    <button class="btn-primary" id="captureBtn">📸 Capture</button>
+                    <button class="btn-secondary" id="closeCameraBtn">Close</button>
+                </div>
+                <canvas id="cameraCanvas" style="display:none;"></canvas>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing image...</p>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div class="result-item">
+                <div class="result-label">Disease</div>
+                <div class="result-value disease-name" id="diseaseName"></div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Confidence</div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="confidenceFill"></div>
+                </div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Severity</div>
+                <div class="severity-badge" id="severityBadge"></div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Expert Explanation</div>
+                <div class="explanation" id="explanation"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        let cameraStream = null;
+
+        // Elements
+        const fileInput = document.getElementById('fileInput');
+        const fileUploadBox = document.getElementById('fileUploadBox');
+        const cameraBox = document.getElementById('cameraBox');
+        const imagePreview = document.getElementById('imagePreview');
+        const predictBtn = document.getElementById('predictBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const errorDiv = document.getElementById('error');
+
+        // Camera Modal
+        const cameraModal = document.getElementById('cameraModal');
+        const cameraVideo = document.getElementById('cameraVideo');
+        const captureBtn = document.getElementById('captureBtn');
+        const closeCameraBtn = document.getElementById('closeCameraBtn');
+        const cameraCanvas = document.getElementById('cameraCanvas');
+        const closeModal = document.querySelector('.close');
+
+        // Drag & drop
+        fileUploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUploadBox.style.borderColor = '#764ba2';
+        });
+
+        fileUploadBox.addEventListener('dragleave', () => {
+            fileUploadBox.style.borderColor = '#667eea';
+        });
+
+        fileUploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUploadBox.style.borderColor = '#667eea';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        fileUploadBox.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Camera
+        cameraBox.addEventListener('click', openCamera);
+        captureBtn.addEventListener('click', capturePhoto);
+        closeCameraBtn.addEventListener('click', closeCamera);
+        closeModal.addEventListener('click', closeCamera);
+
+        function handleFileSelect(file) {
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                predictBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+            errorDiv.classList.remove('show');
+        }
+
+        async function openCamera() {
+            cameraModal.style.display = 'block';
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                cameraVideo.srcObject = cameraStream;
+            } catch (error) {
+                showError('Camera access denied. Please allow camera permissions.');
+                closeCamera();
+            }
+        }
+
+        function capturePhoto() {
+            const context = cameraCanvas.getContext('2d');
+            cameraCanvas.width = cameraVideo.videoWidth;
+            cameraCanvas.height = cameraVideo.videoHeight;
+            context.drawImage(cameraVideo, 0, 0);
+
+            cameraCanvas.toBlob((blob) => {
+                selectedFile = new File([blob], 'camera_photo.jpg', { type: 'image/jpeg' });
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                    predictBtn.disabled = false;
+                };
+                reader.readAsDataURL(blob);
+                closeCamera();
+            }, 'image/jpeg', 0.95);
+        }
+
+        function closeCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+            cameraModal.style.display = 'none';
+        }
+
+        async function validateTomatoImage(file) {
+    // Check file size (reject if > 10MB)
+            const maxSize = 10 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showError('Image too large. Max 10MB.');
+                return false;
+            }
+
+            const dimsOk = await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(img.width >= 100 && img.height >= 100);
+                img.onerror = () => resolve(false);
+                img.src = URL.createObjectURL(file);
+            });
+
+            // Check dimensions (tomato leaves should be reasonable size)
+            if (!dimsOk) {
+                showError("Invalid image or too small (min 100x100).");
+                return false;
+            }
+
+            return true;
+        }
+
+        predictBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            if (!(await validateTomatoImage(selectedFile))) return;
+                
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            loading.classList.add('show');
+            resultSection.classList.remove('show');
+            errorDiv.classList.remove('show');
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Prediction failed');
+                }
+
+                displayResult(data);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                loading.classList.remove('show');
+            }
+        });
+
+        function displayResult(data) {
+            document.getElementById('diseaseName').textContent = 
+                data.disease.replace(/_/g, ' ');
+            
+            const confidence = data.confidence;
+            const confidenceFill = document.getElementById('confidenceFill');
+            confidenceFill.style.width = confidence + '%';
+            confidenceFill.textContent = confidence + '%';
+
+            const severityBadge = document.getElementById('severityBadge');
+            severityBadge.textContent = data.severity;
+            severityBadge.className = 'severity-badge severity-' + data.severity.toLowerCase();
+
+            document.getElementById('explanation').textContent = data.explanation;
+
+            resultSection.classList.add('show');
+        }
+
+        function showError(message) {
+            errorDiv.textContent = '❌ Error: ' + message;
+            errorDiv.classList.add('show');
+        }
+
+        clearBtn.addEventListener('click', () => {
+            selectedFile = null;
+            fileInput.value = '';
+            imagePreview.innerHTML = '';
+            predictBtn.disabled = true;
+            resultSection.classList.remove('show');
+            errorDiv.classList.remove('show');
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === cameraModal) {
+                closeCamera();
+            }
+        });
+    </script>
+</body>
+</html>

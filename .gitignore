@@ -1,0 +1,10 @@
+__pycache__/
+venv/
+.ipynb_checkpoints/
+.env
+Data_sets/
+Data_sets_split/
+trained_model/
+more_images/
+*.h5
+results/
