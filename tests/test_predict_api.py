@@ -1,6 +1,5 @@
-import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from app.main import app
 
 client = TestClient(app)
@@ -10,7 +9,7 @@ def test_home():
     """Test home endpoint"""
     response = client.get("/")
     assert response.status_code == 200
-    assert "message" in response.json()
+    assert "text/html" in response.headers.get("content-type", "")
 
 
 @patch("app.main.predict_disease")
@@ -39,9 +38,41 @@ def test_predict_low_confidence(mock_predict):
     
     assert response.status_code == 200
     data = response.json()
-    assert data["disease"] == "Uncertain"
-    assert data["severity"] == "Unknown"
-    assert "not confident" in data["explanation"].lower()
+    assert data["disease"] == "NotTomato"
+    assert data["severity"] == "None"
+    assert "tomato leaf" in data["explanation"].lower()
+
+
+@patch("app.main.predict_disease")
+def test_predict_explicit_not_tomato(mock_predict):
+    """Test /predict when gate rejects image as non-tomato"""
+    mock_predict.return_value = {
+        "disease": "NotTomato",
+        "confidence": 92.0,
+        "reason": "gate_rejected_non_tomato",
+    }
+
+    with open("tests/sample_image.jpg", "rb") as f:
+        response = client.post("/predict", files={"file": f})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["disease"] == "NotTomato"
+    assert data["severity"] == "None"
+
+
+@patch("app.main.predict_disease")
+def test_predict_healthy_severity_none(mock_predict):
+    """Healthy class should not be assigned disease severity"""
+    mock_predict.return_value = {"disease": "Tomato___healthy", "confidence": 95.0}
+
+    with open("tests/sample_image.jpg", "rb") as f:
+        response = client.post("/predict", files={"file": f})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["disease"] == "Tomato___healthy"
+    assert data["severity"] == "None"
 
 
 def test_predict_no_file():

@@ -3,7 +3,6 @@ import io
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, status
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from app.utils.predict import predict_disease
 from app.utils.severity import calculate_severity
 from app.services.gemini_llm import GeminiLLM
@@ -60,9 +59,11 @@ async def predict(file: UploadFile = File(...)):
         if isinstance(pred, dict):
             disease = pred.get("disease")
             confidence = float(pred.get("confidence"))
+            reason = pred.get("reason")
         else:
             disease, confidence = pred
             confidence = float(confidence)
+            reason = None
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -71,16 +72,35 @@ async def predict(file: UploadFile = File(...)):
 
     if confidence < CONFIDENCE_THRESHOLD:
         return {
-            "disease": "Uncertain",
+            "disease": "NotTomato",
             "confidence": round(confidence, 2),
-            "severity": "Unknown",
-            "explanation": "The model is not confident about the prediction. Please upload a clearer image or consult an agricultural expert.",
+            "severity": "None",
+            "explanation": "The image is not confidently recognized as a tomato leaf. Please upload a clear tomato leaf image.",
         }
 
-    severity = calculate_severity(confidence)
+    if disease == "NotTomato":
+        explanation = llm.generate_explanation(
+            disease,
+            confidence,
+            "None",
+            context=reason,
+        )
+        return {
+            "disease": disease,
+            "confidence": round(confidence, 2),
+            "severity": "None",
+            "explanation": explanation,
+        }
+
+    severity = calculate_severity(disease, confidence)
 
     try:
-        explanation = llm.generate_explanation(disease, confidence, severity)
+        explanation = llm.generate_explanation(
+            disease,
+            confidence,
+            severity,
+            context=reason,
+        )
     except Exception:
         explanation = "Prediction was successful, but explanation generation failed. Please try again."
 

@@ -9,7 +9,20 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 class GeminiLLM(BaseLLM):
     
-    def generate_explanation(self, disease: str, confidence: float, severity: str) -> str:
+    def generate_explanation(
+        self,
+        disease: str,
+        confidence: float,
+        severity: str,
+        context: str | None = None,
+    ) -> str:
+
+        if disease == "NotTomato":
+            return (
+                "The uploaded image does not appear to be a tomato leaf, so disease analysis "
+                "was not performed. Please upload a clear tomato leaf image (single leaf, good "
+                "lighting, close-up, minimal background clutter)."
+            )
  
         prompt = f"""
     You are an expert agricultural plant pathologist.
@@ -20,6 +33,7 @@ class GeminiLLM(BaseLLM):
     - Disease: {disease}
     - Model Confidence: {confidence:.2f}%
     - Estimated Severity: {severity}
+    - System Context: {context or 'disease_classification'}
 
     Provide a structured but easy-to-understand explanation including:
 

@@ -1,9 +1,11 @@
-def calculate_severity(confidence: float) -> str:
+def calculate_severity(disease: str, confidence: float) -> str:
     """
-    Determines disease severity level based on prediction confidence.
-    This is a proxy severity estimation and can later be replaced
-    with lesion area segmentation or disease progression modeling.
+    Determines severity based on disease label and prediction confidence.
+    This remains a proxy and can later be replaced by lesion segmentation.
     """
+
+    if disease in {"NotTomato", "Tomato___healthy"}:
+        return "None"
 
     if confidence < 50:
         return "Unknown"
