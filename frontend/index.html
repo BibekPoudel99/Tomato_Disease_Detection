@@ -252,9 +252,99 @@
             severityBadge.textContent = data.severity;
             severityBadge.className = 'severity-badge severity-' + data.severity.toLowerCase();
 
-            document.getElementById('explanation').textContent = data.explanation;
+            renderExplanation(data.explanation);
 
             resultSection.classList.add('show');
+        }
+
+        function renderExplanation(rawText) {
+            const explanationEl = document.getElementById('explanation');
+            const sections = parseExplanationSections(rawText);
+
+            explanationEl.innerHTML = [
+                createExplanationCard('Causes', sections.causes),
+                createExplanationCard('Treatment', sections.treatment),
+                createExplanationCard('Prevention', sections.prevention)
+            ].join('');
+        }
+
+        function parseExplanationSections(text) {
+            const clean = (text || '').replace(/\r/g, '').trim();
+
+            const allHeadings = [
+                'Causes?',
+                'Why it occurs?',
+                'Treatment',
+                'Recommended treatment(?: methods?)?',
+                'Prevention',
+                'Prevention measures?',
+                'Tips?',
+                'Practical farmer-friendly tips?'
+            ].join('|');
+
+            function extract(startPattern) {
+                const re = new RegExp(
+                    '(?:^|\\n)\\s*(?:\\d+\\.\\s*)?(?:' + startPattern + ')\\s*[:\\-]?\\s*([\\s\\S]*?)(?=\\n\\s*(?:\\d+\\.\\s*)?(?:' + allHeadings + ')\\s*[:\\-]?\\s*|$)',
+                    'i'
+                );
+                const match = clean.match(re);
+                return match ? match[1].trim() : '';
+            }
+
+            const causes = extract('Causes?|Why it occurs?');
+            const treatment = extract('Treatment|Recommended treatment(?: methods?)?');
+            const prevention = extract('Prevention|Prevention measures?');
+
+            if (causes || treatment || prevention) {
+                return {
+                    causes: causes || 'Not explicitly provided by the model.',
+                    treatment: treatment || 'Not explicitly provided by the model.',
+                    prevention: prevention || 'Not explicitly provided by the model.'
+                };
+            }
+
+            return {
+                causes: clean || 'No explanation available.',
+                treatment: 'Not explicitly provided by the model.',
+                prevention: 'Not explicitly provided by the model.'
+            };
+        }
+
+        function createExplanationCard(title, content) {
+            return `
+                <div class="explanation-card">
+                    <div class="explanation-card-title">${escapeHtml(title)}</div>
+                    <div class="explanation-card-body">${formatExplanationText(content)}</div>
+                </div>
+            `;
+        }
+
+        function formatExplanationText(content) {
+            const lines = (content || '')
+                .split('\n')
+                .map(line => line.trim())
+                .filter(Boolean);
+
+            const hasBullets = lines.length > 1 && lines.some(line => /^[-*•]|^\d+\./.test(line));
+
+            if (hasBullets) {
+                const items = lines
+                    .map(line => line.replace(/^[-*•]\s*|^\d+\.\s*/, ''))
+                    .map(item => `<li>${escapeHtml(item)}</li>`)
+                    .join('');
+                return `<ul>${items}</ul>`;
+            }
+
+            return `<p>${escapeHtml(lines.join(' '))}</p>`;
+        }
+
+        function escapeHtml(str) {
+            return (str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         function showError(message) {

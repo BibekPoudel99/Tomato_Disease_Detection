@@ -17,7 +17,10 @@ class MockLLM(BaseLLM):
             f"Disease: {disease}\n"
             f"confidence: {confidence}\n"
             f"Severity: {severity}\n\n"
-            "This is a simulated explanation for development purposes.\n"
-            "Treatment: Apply general fungicide.\n"
-            "Prevention: Maintain dry foliage."
+            "Causes:\n"
+            "- Usually triggered by favorable conditions for this pathogen.\n\n"
+            "Treatment:\n"
+            "- Remove heavily affected leaves and use safe general disease management.\n\n"
+            "Prevention:\n"
+            "- Keep leaves dry and improve airflow around plants."
         )

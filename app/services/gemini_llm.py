@@ -35,20 +35,23 @@ class GeminiLLM(BaseLLM):
     - Estimated Severity: {severity}
     - System Context: {context or 'disease_classification'}
 
-    Provide a structured but easy-to-understand explanation including:
+    Return output in this exact structure and order only:
+    Causes:
+    - ...
 
-    1. What this disease is
-    2. Why it occurs
-    3. Symptoms farmers should observe
-    4. Recommended treatment methods (safe and general advice only)
-    5. Prevention measures
-    6. Practical farmer-friendly tips
+    Treatment:
+    - ...
 
-    Important:
-    - Do NOT provide chemical dosage quantities.
+    Prevention:
+    - ...
+
+    Rules:
+    - Use 1-2 short bullet points per section.
+    - Total response must be under 120 words.
+    - Keep language simple and farmer-friendly.
+    - Do NOT provide chemical dosages.
     - Do NOT provide unsafe pesticide instructions.
-    - Keep language simple and clear.
-    - Keep response under 400 words.
+    - Do not add extra headings, intro, or conclusion.
     """
 
         try:
